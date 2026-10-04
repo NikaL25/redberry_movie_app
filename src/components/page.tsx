@@ -50,7 +50,7 @@ export default function Page() {
         <div className="film-grid">{films.map((film) => <article className="film-card" key={film.title}><img src={film.image} alt={`${film.title} poster`} /><h3>{film.title}</h3><p>{film.genre} · 102 min</p><small>16+</small><footer><strong>From £14</strong><button className="button button-red">Buy Ticket</button></footer></article>)}</div>
       </section>
 
-      <section className="section coming container"><header className="section-heading"><h2>COMING SOON...</h2><a href="#coming">See all</a></header><div className="coming-grid">{comingSoon.map((film) => <article className="coming-card" key={film.title}><img src={film.image} alt="" /><div><b>{film.date}</b><h3>{film.title}</h3><p>Drama · 134 min</p><small>12+</small><button className="notify"><Bell size={14} /> Notify Me</button></div></article>)}</div></section>
+      <section className="section coming container"><header className="section-heading"><h2>COMING SOONываыв...</h2><a href="#coming">See all</a></header><div className="coming-grid">{comingSoon.map((film) => <article className="coming-card" key={film.title}><img src={film.image} alt="" /><div><b>{film.date}</b><h3>{film.title}</h3><p>Drama · 134 min</p><small>12+</small><button className="notify"><Bell size={14} /> Notify Me</button></div></article>)}</div></section>
 
       <footer className="site-footer container"><strong>KINO <span>XII</span></strong><span>© 2026 Kino XII. All rights reserved.</span></footer>
     </main>

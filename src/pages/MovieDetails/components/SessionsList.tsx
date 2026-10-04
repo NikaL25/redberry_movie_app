@@ -28,7 +28,7 @@ const MovieBlock = ({ movie }: { movie: Movie }) => (
   </article>
 );
 
-export const SessionsList = () => {
+export const  SessionsList = () => {
   const [sort, setSort] = useState(SORT_OPTIONS[0]);
   const total = MOVIES.reduce((n, m) => n + m.sessions.length, 0);
 

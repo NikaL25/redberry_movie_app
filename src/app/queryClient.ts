@@ -1,3 +1,4 @@
+import type { SessionFilters } from '@/types/api'
 import { QueryClient } from '@tanstack/react-query'
 
 export const queryClient = new QueryClient({
@@ -16,17 +17,34 @@ export const queryClient = new QueryClient({
 })
 
 export const queryKeys = {
-  me: ['me'] as const,
-  filterOptions: ['filter-options'] as const,
   featured: ['movies', 'featured'] as const,
-  nowPlaying: (limit?: number) => ['movies', 'now-playing', limit] as const,
-  comingSoon: (limit?: number) => ['movies', 'coming-soon', limit] as const,
-  search: (q: string) => ['search', q] as const,
-  movie: (slug: string) => ['movies', slug] as const,
-  movieSessions: (slug: string, date?: string) => ['movies', slug, 'sessions', date] as const,
-  sessions: (params: unknown) => ['sessions', params] as const,
-  session: (id: number) => ['session', id] as const,
-  seats: (id: number) => ['seats', id] as const,
-  hold: (id: string) => ['hold', id] as const,
-  tickets: (filter?: string) => ['tickets', filter] as const,
+
+  nowPlaying: (limit?: number) =>
+    ['movies', 'now-playing', limit] as const,
+
+  comingSoon: (limit?: number) =>
+    ['movies', 'coming-soon', limit] as const,
+
+  movie: (slug: string) =>
+    ['movie', slug] as const,
+
+  movieSessions: (slug: string, date?: string) =>
+    ['movie', slug, 'sessions', date] as const,
+
+  search: (q: string) =>
+    ['movies', 'search', q] as const,
+
+  filterOptions: ['sessions', 'filter-options'] as const,
+
+  sessions: (filters: SessionFilters) =>
+    ['sessions', filters] as const,
+
+  session: (id: number) =>
+    ['session', id] as const,
+
+  seats: (id: number) =>
+    ['session', id, 'seats'] as const,
+
+  me: ['auth', 'me'] as const,
 }
+

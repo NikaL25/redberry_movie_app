@@ -1,7 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
+
 import { queryKeys } from '@/app/queryClient'
 import type { SessionFilters } from '@/types/api'
-import { fetchFilterOptions, fetchSeats, fetchSession, fetchSessions } from './sessionsApi'
+
+import {
+  fetchFilterOptions,
+  fetchSeats,
+  fetchSession,
+  fetchSessions,
+} from './sessionsApi'
 
 export function useFilterOptions() {
   return useQuery({
@@ -15,6 +22,7 @@ export function useSessions(filters: SessionFilters) {
   return useQuery({
     queryKey: queryKeys.sessions(filters),
     queryFn: () => fetchSessions(filters),
+    placeholderData: (previousData) => previousData,
   })
 }
 
