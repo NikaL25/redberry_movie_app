@@ -1661,12 +1661,9 @@ export default function MovieDetailsPage() {
               {!sessionsQuery.isError &&
               !sessionsQuery.isFetching ? (
                 <SessionsList
-                  sort={sort}
-                  setSort={setSort}
-                  sessions={
-                    visibleSessions
-                  }
-                />
+                    sort={sort}
+                    setSort={setSort}
+                    sessions={visibleSessions} minimumAge={0}                />
               ) : null}
             </section>
           </main>

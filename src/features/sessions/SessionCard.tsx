@@ -27,13 +27,12 @@ export function SessionCard({
     session.seatsLeft > 0 &&
     session.seatsLeft <= 5
 
-  const hasKnownAge =
-    user?.age != null
+  const userAge = user?.age
 
   const tooYoung =
-    hasKnownAge &&
+    userAge != null &&
     minimumAge > 0 &&
-    user.age < minimumAge
+    userAge < minimumAge
 
   const disabled =
     soldOut ||
