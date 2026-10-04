@@ -12,7 +12,7 @@ import {
   openAuthModal,
   openProfileModal,
   setCredentials,
-  setReplay,
+ clearReplay,
 } from './authSlice'
 import { login, register } from './authApi'
 import { flattenErrors, validateAvatar, validateLogin, validateRegister } from '@/utils/validation'
@@ -41,34 +41,138 @@ function useReplay() {
   const dispatch = useDispatch()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const replay = useSelector((state: RootState) => state.auth.replay)
 
-  return async function continueAfterAuth(profileComplete: boolean) {
+  const replay = useSelector(
+    (state: RootState) => state.auth.replay,
+  )
+
+  return async function continueAfterAuth(
+    profileComplete: boolean,
+  ) {
     const action = replay
+
+    /**
+     * Если действия нет — просто закрываем modal.
+     */
+    if (!action) {
+      dispatch(closeAuthModal())
+      return
+    }
+
+    /**
+     * Закрываем Login Modal перед продолжением.
+     */
     dispatch(closeAuthModal())
-    if (action?.type === 'notify') {
-      await notifyMovie(action.slug)
-      await queryClient.invalidateQueries({ queryKey: queryKeys.comingSoon(6) })
-      dispatch(setReplay(null))
+
+    /**
+     * --------------------------------------------------
+     * NOTIFY
+     * --------------------------------------------------
+     */
+    if (action.type === 'notify') {
+      try {
+        await notifyMovie(action.slug)
+
+        await queryClient.invalidateQueries({
+          queryKey: queryKeys.comingSoon(6),
+        })
+
+        /**
+         * Очищаем replay только после
+         * успешного выполнения действия.
+         */
+        dispatch(clearReplay())
+      } catch {
+        /**
+         * Replay оставляем.
+         *
+         * Если действие завершилось ошибкой,
+         * его не следует считать выполненным.
+         */
+      }
+
       return
     }
-    if (action?.type === 'profile' || action?.type === 'tickets') {
-      navigate(action.type === 'tickets' ? '/profile?tab=tickets' : '/profile')
-      dispatch(setReplay(null))
+
+    /**
+     * --------------------------------------------------
+     * PROFILE
+     * --------------------------------------------------
+     */
+    if (action.type === 'profile') {
+      dispatch(clearReplay())
+      navigate('/profile')
       return
     }
-    if (action?.type === 'book') {
+
+    /**
+     * --------------------------------------------------
+     * TICKETS
+     * --------------------------------------------------
+     */
+    if (action.type === 'tickets') {
+      dispatch(clearReplay())
+      navigate('/profile?tab=tickets')
+      return
+    }
+
+    /**
+     * --------------------------------------------------
+     * FOYER ORDER
+     * --------------------------------------------------
+     *
+     * Реальный foyer flow подключим
+     * на соответствующем этапе.
+     *
+     * Пока replay НЕ очищаем, чтобы действие
+     * не потерялось.
+     */
+    if (action.type === 'foyer-order') {
+      return
+    }
+
+    /**
+     * --------------------------------------------------
+     * BOOKING
+     * --------------------------------------------------
+     */
+    if (action.type === 'book') {
+      /**
+       * Авторизация есть, но профиль неполный.
+       *
+       * Booking начинать нельзя.
+       *
+       * Replay сохраняем.
+       *
+       * Profile Modal после сохранения профиля
+       * сможет продолжить booking.
+       */
       if (!profileComplete) {
         dispatch(openProfileModal())
         return
       }
+
+      /**
+       * Профиль полный — можно открыть booking.
+       */
       dispatch(openBooking(action.sessionId))
-      dispatch(setReplay(null))
+
+      /**
+       * Действие действительно продолжено.
+       */
+      dispatch(clearReplay())
+
       return
     }
-    dispatch(setReplay(null))
+
+    /**
+     * Теоретически сюда попасть нельзя,
+     * но replay всё равно очищаем для безопасности.
+     */
+    dispatch(clearReplay())
   }
 }
+
 
 function LoginForm() {
   const dispatch = useDispatch()
@@ -80,14 +184,21 @@ function LoginForm() {
   const [touched, setTouched] = useState<Record<string, boolean>>({})
   const [submitted, setSubmitted] = useState(false)
 
-  const mutation = useMutation({
-    mutationFn: login,
-    async onSuccess(result) {
-      dispatch(setCredentials(result))
-      await queryClient.invalidateQueries({ queryKey: queryKeys.me })
-      await continueAfterAuth(result.user.profileComplete)
-    },
-  })
+const mutation = useMutation({
+  mutationFn: login,
+
+  async onSuccess(result) {
+    dispatch(setCredentials(result))
+
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.me,
+    })
+
+    await continueAfterAuth(
+      Boolean(result.user.profileComplete),
+    )
+  },
+})
 
   const fieldErrors = {
     ...validateLogin({ email, password }),

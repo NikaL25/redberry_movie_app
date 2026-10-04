@@ -1,5 +1,6 @@
 import axios, {
   type AxiosError,
+  type InternalAxiosRequestConfig,
 } from 'axios'
 
 import { API_BASE_URL } from './endpoints'
@@ -9,11 +10,23 @@ import {
   clearSession,
   handleUnauthorized,
   setReplay,
+  type ReplayAction,
 } from '@/features/auth/authSlice'
 
 import { parseApiError } from '@/utils/errorHandling'
 
 import type { store as AppStore } from '@/app/store'
+
+/**
+ * Расширяем Axios config собственным
+ * serializable полем для replay.
+ *
+ * ВАЖНО:
+ * Здесь нет функций.
+ */
+type AuthRequestConfig = InternalAxiosRequestConfig & {
+  authReplay?: ReplayAction
+}
 
 let storeRef: typeof AppStore | null = null
 
@@ -35,7 +48,7 @@ export const api = axios.create({
 })
 
 /**
- * Добавляем Authorization header.
+ * Добавляем Bearer token к каждому запросу.
  */
 api.interceptors.request.use(
   (config) => {
@@ -57,6 +70,33 @@ api.interceptors.request.use(
 )
 
 /**
+ * Проверяем, является ли запрос login/register.
+ *
+ * Такие запросы не должны открывать Login Modal
+ * повторно при 401.
+ */
+function isCredentialRequest(
+  url: string,
+): boolean {
+  const normalizedUrl = url.toLowerCase()
+
+  return (
+    normalizedUrl.includes('/login') ||
+    normalizedUrl.includes('/register')
+  )
+}
+
+/**
+ * Получаем replay, который был связан
+ * непосредственно с конкретным запросом.
+ */
+function getRequestReplay(
+  config: AuthRequestConfig | undefined,
+): ReplayAction {
+  return config?.authReplay ?? null
+}
+
+/**
  * Глобальная обработка API ошибок.
  */
 api.interceptors.response.use(
@@ -65,20 +105,23 @@ api.interceptors.response.use(
   (error: AxiosError) => {
     const parsed = parseApiError(error)
 
-    const url = error.config?.url ?? ''
+    const config =
+      error.config as AuthRequestConfig | undefined
+
+    const url = config?.url ?? ''
+
+    const isCredentialCall =
+      isCredentialRequest(url)
 
     /**
-     * Login/register нельзя считать
-     * защищённым действием.
+     * 401 означает:
      *
-     * Иначе:
-     *
-     * login → 401 → login modal → login → ...
+     * - текущая сессия больше недействительна;
+     * - пользователя нужно отправить
+     *   в Login Modal;
+     * - после login необходимо
+     *   продолжить действие.
      */
-    const isCredentialCall =
-      url.includes('/login') ||
-      url.includes('/register')
-
     if (
       parsed.status === 401 &&
       !isCredentialCall &&
@@ -87,29 +130,47 @@ api.interceptors.response.use(
       const state = storeRef.getState()
 
       /**
-       * Если запрос был связан с booking,
-       * сохраняем booking как replay.
+       * Приоритет:
        *
-       * Это fallback для случаев,
-       * когда 401 произошёл уже внутри booking.
+       * 1. Replay, переданный конкретным запросом.
+       * 2. Уже сохранённый replay.
+       * 3. Booking fallback.
        */
-      const booking = state.booking
+      let replay =
+        getRequestReplay(config) ??
+        state.auth.replay
 
+      /**
+       * Fallback для booking.
+       *
+       * Это особенно полезно, если 401 произошёл
+       * уже после открытия Booking Modal.
+       */
       if (
-        booking?.isOpen &&
-        booking.sessionId
+        !replay &&
+        state.booking?.isOpen &&
+        state.booking.sessionId
       ) {
+        replay = {
+          type: 'book',
+          sessionId: state.booking.sessionId,
+        }
+      }
+
+      /**
+       * Сохраняем replay ДО очистки сессии.
+       */
+      if (replay) {
         storeRef.dispatch(
-          setReplay({
-            type: 'book',
-            sessionId: booking.sessionId,
-          }),
+          setReplay(replay),
         )
       }
 
       /**
-       * ВАЖНО:
-       * clearSession НЕ очищает replay.
+       * Удаляем старую сессию.
+       *
+       * clearSession специально
+       * НЕ удаляет replay.
        */
       storeRef.dispatch(
         clearSession(),
@@ -117,12 +178,25 @@ api.interceptors.response.use(
 
       /**
        * Открываем Login Modal.
+       *
+       * Передаём replay напрямую,
+       * чтобы не потерять действие.
        */
       storeRef.dispatch(
-        handleUnauthorized(),
+        handleUnauthorized(
+          replay
+            ? { replay }
+            : undefined,
+        ),
       )
     }
 
+    /**
+     * Важно вернуть parsed error,
+     * потому что React Query / mutation
+     * должны продолжать обрабатывать ошибку
+     * самостоятельно.
+     */
     return Promise.reject(parsed)
   },
 )
