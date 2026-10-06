@@ -1,8 +1,10 @@
-import { Logo } from './Header';
+import { Logo } from './Header'
 
 export const Footer = () => (
-  <footer className="mx-6 lg:mx-[34px] border-t border-white/10 py-5 flex items-center justify-between">
-    <Logo className="text-sm" />
-    <p className="text-xs text-slate-400">© 2026 Kino XII. All rights reserved.</p>
+  <footer className="mt-auto w-full border-t border-white/[0.06]">
+    <div className="mx-auto flex w-full max-w-[1720px] items-center justify-between px-12 py-6 text-[11px] text-white/40">
+      <Logo className="text-[13px]" />
+      <p>© 2026 Kino XII. All rights reserved.</p>
+    </div>
   </footer>
-);
+)

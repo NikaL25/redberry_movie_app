@@ -17,6 +17,8 @@ export type Language = {
   id: number
   slug: string
   name: string
+  /** Короткий код языка из API (GEO, RUS, ENG). */
+  code?: string
 }
 
 export type Genre = {

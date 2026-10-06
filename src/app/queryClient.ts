@@ -19,6 +19,7 @@ export const queryClient = new QueryClient({
 export const queryKeys = {
   featured: ['movies', 'featured'] as const,
 
+
   nowPlaying: (limit?: number) =>
     ['movies', 'now-playing', limit] as const,
 
@@ -30,7 +31,9 @@ export const queryKeys = {
 
   movieSessions: (slug: string, date?: string) =>
     ['movie', slug, 'sessions', date] as const,
-
+  
+  tickets: (filter?: 'upcoming' | 'past') =>
+    ['profile', 'tickets', filter] as const,
   search: (q: string) =>
     ['movies', 'search', q] as const,
 

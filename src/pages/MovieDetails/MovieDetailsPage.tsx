@@ -1,60 +1,23 @@
 import { useMemo, useState } from 'react'
-import {
-  CalendarDays,
-  Check,
-  ChevronDown,
-  Ticket,
-} from 'lucide-react'
+import { CalendarDays, ChevronDown, Clock, Ticket } from 'lucide-react'
 import { useParams } from 'react-router-dom'
 
 import { AppLayout } from '@/components/layout/AppLayout'
-import {
-  ErrorBanner,
-  Spinner,
-} from '@/components/feedback/Status'
-import {
-  useMovie,
-  useMovieSessions,
-} from '@/features/movies/moviesQueries'
+import { ErrorBanner, Spinner } from '@/components/feedback/Status'
+import { useMovie, useMovieSessions } from '@/features/movies/moviesQueries'
 import { useBookingFlow } from '@/features/booking/useBookingFlow'
 import { useAuth } from '@/hooks/useAuth'
-import type {
-  MovieDetail,
-  Session,
-} from '@/types/models'
-import {
-  formatGel,
-  formatReleaseDate,
-} from '@/utils/formatters'
+import type { MovieDetail, Session } from '@/types/models'
+import { formatGel, formatReleaseDate } from '@/utils/formatters'
 import { parseApiError } from '@/utils/errorHandling'
 
-type SortOption =
-  | 'Showtime: earliest first'
-  | 'Showtime: latest first'
-  | 'Price: low to high'
+type SortOption = 'Showtime: earliest first' | 'Showtime: latest first' | 'Price: low to high'
 
 type FlatSession = Session
 
-type FilterOption = {
-  slug: string
-  label: string
-  hint?: string
-}
+const SORT_OPTIONS = ['Showtime: earliest first', 'Showtime: latest first', 'Price: low to high'] as const
 
-const SORT_OPTIONS = [
-  'Showtime: earliest first',
-  'Showtime: latest first',
-  'Price: low to high',
-] as const
-
-const TIME_LABELS: Record<
-  Session['timeBand'],
-  string
-> = {
-  morning: 'Morning',
-  afternoon: 'Afternoon',
-  evening: 'Evening',
-}
+const PAGE_CONTAINER = 'mx-auto w-full max-w-[1720px] px-8 lg:px-16'
 
 /**
  * Parse YYYY-MM-DD without UTC timezone conversion.
@@ -65,25 +28,17 @@ const TIME_LABELS: Record<
  * calendar date depending on the browser timezone.
  */
 function parseDateOnly(value: string) {
-  const match = value.match(
-    /^(\d{4})-(\d{2})-(\d{2})$/,
-  )
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/)
 
   if (!match) {
     const fallback = new Date(value)
 
-    return Number.isNaN(fallback.getTime())
-      ? null
-      : fallback
+    return Number.isNaN(fallback.getTime()) ? null : fallback
   }
 
   const [, year, month, day] = match
 
-  return new Date(
-    Number(year),
-    Number(month) - 1,
-    Number(day),
-  )
+  return new Date(Number(year), Number(month) - 1, Number(day))
 }
 
 function normalizeDate(value: string) {
@@ -94,12 +49,8 @@ function normalizeDate(value: string) {
   }
 
   const year = parsed.getFullYear()
-  const month = String(
-    parsed.getMonth() + 1,
-  ).padStart(2, '0')
-  const day = String(
-    parsed.getDate(),
-  ).padStart(2, '0')
+  const month = String(parsed.getMonth() + 1).padStart(2, '0')
+  const day = String(parsed.getDate()).padStart(2, '0')
 
   return `${year}-${month}-${day}`
 }
@@ -111,14 +62,11 @@ function formatDateLabel(value: string) {
     return value
   }
 
-  return date.toLocaleDateString(
-    'en-GB',
-    {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short',
-    },
-  )
+  return date.toLocaleDateString('en-GB', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  })
 }
 
 function formatDateDay(value: string) {
@@ -138,273 +86,82 @@ function formatDateWeekday(value: string) {
     return value
   }
 
-  return date.toLocaleDateString(
-    'en-GB',
-    {
-      weekday: 'short',
-    },
-  )
+  return date.toLocaleDateString('en-GB', {
+    weekday: 'short',
+  })
 }
 
-function getDisplayTime(startsAt: string) {
-  const date = new Date(startsAt)
-
-  if (Number.isNaN(date.getTime())) {
-    return startsAt
-  }
-
-  return date.toLocaleTimeString(
-    'en-GB',
-    {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    },
-  )
-}
-
-function getSessionDate(
-  session: Session,
-) {
+function getSessionDate(session: Session) {
   if (session.date) {
     return normalizeDate(session.date)
   }
 
-  const date = new Date(
-    session.startsAt,
-  )
+  const date = new Date(session.startsAt)
 
   if (Number.isNaN(date.getTime())) {
     return ''
   }
 
   const year = date.getFullYear()
-
-  const month = String(
-    date.getMonth() + 1,
-  ).padStart(2, '0')
-
-  const day = String(
-    date.getDate(),
-  ).padStart(2, '0')
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
 
   return `${year}-${month}-${day}`
 }
 
-function SectionTitle({
-  children,
-}: {
-  children: string
-}) {
-  return (
-    <h3 className="mb-3 text-xs font-medium uppercase tracking-[0.1em] text-slate-400">
-      {children}
-    </h3>
-  )
-}
+/* ------------------------------------------------------------------ */
+/* Date selector                                                       */
+/* ------------------------------------------------------------------ */
 
-function Divider() {
-  return (
-    <hr className="my-6 border-white/10" />
-  )
-}
-
-function Filters({
-  selected,
+function DateSelector({
   date,
   dates,
-  options,
-  onToggle,
   onDateChange,
-  onClear,
 }: {
-  selected: Set<string>
   date: string | null
   dates: string[]
-  options: {
-    venues: FilterOption[]
-    formats: FilterOption[]
-    languages: FilterOption[]
-    timeBands: FilterOption[]
-  }
-  onToggle: (key: string) => void
   onDateChange: (value: string) => void
-  onClear: () => void
 }) {
-  const activeCount = selected.size
-
-  const renderCheckboxGroup = (
-    title: string,
-    items: FilterOption[],
-  ) => (
-    <fieldset>
-      <legend className="contents">
-        <SectionTitle>
-          {title}
-        </SectionTitle>
-      </legend>
-
-      <div className="space-y-2.5">
-        {items.length === 0 ? (
-          <p className="text-xs text-slate-500">
-            No options available
-          </p>
-        ) : (
-          items.map((item) => {
-            const key = `${title}:${item.slug}`
-            const checked =
-              selected.has(key)
-
-            return (
-              <label
-                key={key}
-                className="group flex cursor-pointer items-center gap-2.5"
-              >
-                <input
-                  type="checkbox"
-                  className="peer sr-only"
-                  checked={checked}
-                  onChange={() =>
-                    onToggle(key)
-                  }
-                />
-
-                <span
-                  className={`flex h-[18px] w-[18px] items-center justify-center rounded-[5px] border transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[#ef3a22] ${
-                    checked
-                      ? 'border-[#ef3a22] bg-[#ef3a22]'
-                      : 'border-slate-500 group-hover:border-slate-300'
-                  }`}
-                >
-                  {checked ? (
-                    <Check
-                      className="h-3 w-3"
-                      strokeWidth={3}
-                    />
-                  ) : null}
-                </span>
-
-                <span className="text-sm font-medium">
-                  {item.label}
-                </span>
-
-                {item.hint ? (
-                  <span className="text-xs text-slate-400">
-                    · {item.hint}
-                  </span>
-                ) : null}
-              </label>
-            )
-          })
-        )}
+  if (dates.length === 0) {
+    return (
+      <div className="rounded-2xl border border-dashed border-slate-800 bg-[#101726]/80 p-5 text-center text-sm text-slate-400">
+        No showtime dates are available for this movie.
       </div>
-    </fieldset>
-  )
+    )
+  }
 
   return (
-    <aside className="h-fit w-full shrink-0 self-start rounded-2xl bg-[#1a2036] px-6 py-6 lg:sticky lg:top-6 lg:w-[320px]">
-      <div className="mb-6 flex items-center justify-between gap-4">
-        <h2 className="text-lg font-bold">
-          Filters
-        </h2>
+    <div className="flex items-center gap-3 overflow-x-auto pb-2 [scrollbar-width:none]">
+      {dates.map((value) => {
+        const isSelected = date === value
 
-        {activeCount > 0 ? (
+        return (
           <button
+            key={value}
             type="button"
-            onClick={onClear}
-            className="text-xs font-semibold text-[#ff735d] transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ef3a22]"
+            aria-pressed={isSelected}
+            aria-label={formatDateLabel(value)}
+            onClick={() => onDateChange(value)}
+            className={`flex h-[78px] min-w-[72px] shrink-0 flex-col items-center justify-center rounded-2xl border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#f93c24] ${
+              isSelected
+                ? 'border-slate-500/60 bg-[#1e2a44] text-white shadow-lg'
+                : 'border-slate-800/80 bg-[#101726]/80 text-slate-400 hover:bg-[#151f33] hover:text-slate-200'
+            }`}
           >
-            Clear all
+            <span className="text-[11px] font-medium tracking-wide text-slate-400">
+              {formatDateWeekday(value)}
+            </span>
+            <span className="mt-0.5 text-lg font-bold text-white">{formatDateDay(value)}</span>
           </button>
-        ) : null}
-      </div>
-
-      {renderCheckboxGroup(
-        'Venue',
-        options.venues,
-      )}
-
-      <Divider />
-
-      <SectionTitle>
-        Date
-      </SectionTitle>
-
-      {dates.length === 0 ? (
-        <p className="text-xs text-slate-500">
-          No dates available.
-        </p>
-      ) : (
-        <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none]">
-          {dates.map((value) => {
-            const selectedDate =
-              date === value
-
-            return (
-              <button
-                key={value}
-                type="button"
-                aria-pressed={
-                  selectedDate
-                }
-                aria-label={formatDateLabel(
-                  value,
-                )}
-                onClick={() =>
-                  onDateChange(value)
-                }
-                className={`w-[46px] shrink-0 rounded-md py-2 text-xs font-medium leading-5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ef3a22] ${
-                  selectedDate
-                    ? 'bg-[#ef3a22] text-white'
-                    : 'bg-[#262d48] text-slate-200 hover:bg-[#30385a]'
-                }`}
-              >
-                {formatDateWeekday(
-                  value,
-                )}
-
-                <br />
-
-                <span className="text-sm">
-                  {formatDateDay(value)}
-                </span>
-              </button>
-            )
-          })}
-        </div>
-      )}
-
-      <Divider />
-
-      {renderCheckboxGroup(
-        'Format',
-        options.formats,
-      )}
-
-      <Divider />
-
-      {renderCheckboxGroup(
-        'Language',
-        options.languages,
-      )}
-
-      <Divider />
-
-      {renderCheckboxGroup(
-        'Time of day',
-        options.timeBands,
-      )}
-
-      <p className="mt-10 text-center text-xs text-slate-400">
-        {activeCount}{' '}
-        {activeCount === 1
-          ? 'filter'
-          : 'filters'}{' '}
-        active
-      </p>
-    </aside>
+        )
+      })}
+    </div>
   )
 }
+
+/* ------------------------------------------------------------------ */
+/* Session ticket                                                      */
+/* ------------------------------------------------------------------ */
 
 function SessionCard({
   session,
@@ -416,23 +173,13 @@ function SessionCard({
   const { startBooking } = useBookingFlow()
   const { user } = useAuth()
 
-  const soldOut =
-    session.isSoldOut ||
-    session.seatsLeft <= 0
+  const soldOut = session.isSoldOut || session.seatsLeft <= 0
 
-  const lowAvailability =
-    !soldOut &&
-    session.seatsLeft > 0 &&
-    session.seatsLeft <= 5
+  const lowAvailability = !soldOut && session.seatsLeft > 0 && session.seatsLeft <= 5
 
-  const tooYoung =
-    user?.age != null &&
-    minimumAge > 0 &&
-    user.age < minimumAge
+  const tooYoung = user?.age != null && minimumAge > 0 && user.age < minimumAge
 
-  const disabled =
-    soldOut ||
-    tooYoung
+  const disabled = soldOut || tooYoung
 
   const handleBooking = () => {
     if (disabled) {
@@ -447,99 +194,133 @@ function SessionCard({
       type="button"
       disabled={disabled}
       title={
-        tooYoung
-          ? `You must be at least ${minimumAge} years old to book this session.`
-          : undefined
+        tooYoung ? `You must be at least ${minimumAge} years old to book this session.` : undefined
       }
       aria-label={[
-        getDisplayTime(session.startsAt),
+        session.time,
         session.language.name,
         session.format.name,
-        soldOut
-          ? 'sold out'
-          : `${session.seatsLeft} seats left`,
+        soldOut ? 'sold out' : `${session.seatsLeft} seats left`,
         formatGel(session.price),
-        tooYoung
-          ? `minimum age ${minimumAge}`
-          : undefined,
+        tooYoung ? `minimum age ${minimumAge}` : undefined,
       ]
         .filter(Boolean)
         .join(', ')}
       onClick={handleBooking}
-      className={`w-[252px] shrink-0 rounded-2xl bg-[#1a2036] px-4 py-4 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ef3a22] ${
-        disabled
-          ? 'cursor-not-allowed opacity-45'
-          : 'hover:bg-[#232a45]'
+      className={`flex flex-col overflow-hidden rounded-xl border border-slate-700/40 bg-[#1b263b] text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#f93c24] ${
+        disabled ? 'cursor-not-allowed opacity-45' : 'hover:bg-[#202d45]'
       }`}
     >
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-lg font-bold">
-          {getDisplayTime(session.startsAt)}
-        </span>
-
-        <span className="rounded-full bg-[#2a3150] px-2.5 py-1 text-xs font-medium">
-          {session.format.name}
-        </span>
-      </div>
-
-      <div className="mt-2.5 flex items-center justify-between gap-3 text-xs">
-        <span className="truncate text-slate-300">
-          {session.language.name}
-        </span>
-
-        {soldOut ? (
-          <span className="shrink-0 text-slate-300">
-            Sold out
+      <span className="flex items-stretch">
+        {/* Время, язык, формат */}
+        <span className="flex flex-col justify-center px-3.5 py-2.5">
+          <span className="text-sm font-bold tracking-tight text-white">{session.time}</span>
+          <span className="mt-1 flex items-center gap-1">
+            <span className="max-w-[90px] truncate text-[9px] font-medium uppercase text-slate-400">
+              {session.language.code ?? session.language.name}
+            </span>
+            <span className="rounded bg-[#101726] px-1.5 py-px text-[9px] font-semibold uppercase text-slate-300">
+              {session.format.name}
+            </span>
           </span>
-        ) : tooYoung ? (
-          <span className="shrink-0 text-[#ff735d]">
-            Age {minimumAge}+
-          </span>
-        ) : (
-          <span
-            className={`flex shrink-0 items-center gap-1 ${
-              lowAvailability
-                ? 'text-[#ef3a22]'
-                : 'text-[#3ddc84]'
-            }`}
-          >
-            <Ticket
-              className="h-3.5 w-3.5 -rotate-45"
-              fill="currentColor"
-              aria-hidden="true"
-            />
-
-            {session.seatsLeft} left
-          </span>
-        )}
-      </div>
-
-      <div className="mt-2 flex items-center justify-between gap-3">
-        <span className="truncate text-xs font-semibold">
-          {session.hall.name}
         </span>
 
-        <span className="shrink-0 text-sm font-bold">
-          {formatGel(session.price)}
+        {/* Перфорация */}
+        <span className="my-1.5 border-l border-dashed border-slate-700/80" aria-hidden="true" />
+
+        {/* Цена и места */}
+        <span className="flex flex-col justify-center px-3.5 py-2.5">
+          <span className="text-sm font-bold text-white">{formatGel(session.price)}</span>
+
+          <span className="mt-1 flex items-center gap-1 text-[10px]">
+            {soldOut ? (
+              <span className="text-slate-400">Sold out</span>
+            ) : tooYoung ? (
+              <span className="text-[#f94f38]">Age {minimumAge}+</span>
+            ) : (
+              <span
+                className={`flex items-center gap-1 font-semibold ${
+                  lowAvailability ? 'text-[#f93c24]' : 'text-[#3ddc84]'
+                }`}
+              >
+                <Ticket className="h-2.5 w-2.5 -rotate-45" fill="currentColor" aria-hidden="true" />
+                {session.seatsLeft} left
+              </span>
+            )}
+          </span>
         </span>
-      </div>
+      </span>
 
       {minimumAge > 0 && !tooYoung ? (
-        <div className="mt-3 rounded-lg bg-[#30221c] px-2.5 py-2 text-[11px] leading-4 text-[#ffb15e]">
+        <span className="block bg-[#261d15]/60 px-3.5 py-1.5 text-[10px] leading-4 text-[#f59e0b]">
           {minimumAge}+ age restriction
-        </div>
+        </span>
       ) : null}
 
       {tooYoung ? (
-        <div className="mt-3 rounded-lg bg-[#3a2020] px-2.5 py-2 text-[11px] leading-4 text-[#ff8d7c]">
-          Your profile age does not meet the minimum age of{' '}
-          {minimumAge}.
-        </div>
+        <span className="block bg-[#3a2020] px-3.5 py-1.5 text-[10px] leading-4 text-[#ff8d7c]">
+          Your profile age does not meet the minimum age of {minimumAge}.
+        </span>
       ) : null}
     </button>
   )
 }
 
+/* ------------------------------------------------------------------ */
+/* Sessions list                                                       */
+/* ------------------------------------------------------------------ */
+
+function SessionsToolbar({
+  count,
+  sort,
+  setSort,
+}: {
+  count: number
+  sort: SortOption
+  setSort: (value: SortOption) => void
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-4">
+      <p className="text-[13px] text-slate-400">
+        Showing {count} {count === 1 ? 'session' : 'sessions'}
+      </p>
+
+      <label className="group relative flex items-center gap-1.5 text-[13px]">
+        <span className="text-slate-400">Sort:</span>
+
+        <select
+          value={sort}
+          onChange={(event) => setSort(event.target.value as SortOption)}
+          className="cursor-pointer appearance-none rounded bg-transparent pr-6 font-semibold text-white outline-none transition-colors group-hover:text-[#f93c24] focus-visible:ring-2 focus-visible:ring-[#f93c24]"
+        >
+          {SORT_OPTIONS.map((option) => (
+            <option key={option} value={option} className="bg-[#111927] text-white">
+              {option}
+            </option>
+          ))}
+        </select>
+
+        <ChevronDown
+          className="pointer-events-none absolute right-0 h-4 w-4 text-slate-400 transition-colors group-hover:text-[#f93c24]"
+          aria-hidden="true"
+        />
+      </label>
+    </div>
+  )
+}
+type HallGroup = {
+  hallId: string
+  hallName: string
+  sessions: FlatSession[]
+}
+
+type VenueGroup = {
+  venueId: number
+  venueName: string
+  venueCity: string
+  sessions: FlatSession[]
+  halls: Map<string, HallGroup>
+}
 
 function SessionsList({
   sort,
@@ -548,316 +329,238 @@ function SessionsList({
   minimumAge,
 }: {
   sort: SortOption
-  setSort: (
-    value: SortOption,
-  ) => void
+  setSort: (value: SortOption) => void
   sessions: FlatSession[]
   minimumAge: number
 }) {
-  const grouped = useMemo(() => {
-    const map = new Map<
-      number,
-      {
-        venueName: string
-        venueCity: string
-        venueId: number
-        sessions: FlatSession[]
-      }
-    >()
+const grouped = useMemo(() => {
+  const map = new Map<number, VenueGroup>()
 
-    for (const session of sessions) {
-      const key = session.venue.id
+  for (const session of sessions) {
+    const key = session.venue.id
 
-      const current =
-        map.get(key) ?? {
-          venueName:
-            session.venue.name,
-          venueCity:
-            session.venue.city,
-          venueId:
-            session.venue.id,
-          sessions: [],
-        }
-
-      current.sessions.push(session)
-
-      map.set(key, current)
+    const current: VenueGroup = map.get(key) ?? {
+      venueName: session.venue.name,
+      venueCity: session.venue.city,
+      venueId: session.venue.id,
+      sessions: [],
+      halls: new Map<string, HallGroup>(),
     }
 
-    return Array.from(
-      map.values(),
-    )
-  }, [sessions])
+    current.sessions.push(session)
+
+    const hallKey = String(session.hall.id)
+    const hall: HallGroup = current.halls.get(hallKey) ?? {
+      hallId: hallKey,
+      hallName: session.hall.name,
+      sessions: [],
+    }
+
+    hall.sessions.push(session)
+    current.halls.set(hallKey, hall)
+
+    map.set(key, current)
+  }
+
+  return Array.from(map.values()).map((venue) => ({
+    ...venue,
+    halls: Array.from(venue.halls.values()),
+  }))
+}, [sessions])
 
   if (grouped.length === 0) {
     return (
-      <div>
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-          <p className="text-sm font-semibold">
-            Showing 0 sessions
-          </p>
+      <div className="flex flex-col gap-5">
+        <SessionsToolbar count={0} sort={sort} setSort={setSort} />
 
-          <label className="relative flex items-center gap-2 text-sm">
-            <span className="text-slate-400">
-              Sort:
-            </span>
+        <div className="rounded-2xl border border-dashed border-slate-800 bg-[#101726]/80 p-8 text-center text-slate-300">
+          <p className="font-semibold">No sessions available for this date.</p>
 
-            <select
-              value={sort}
-              onChange={(event) =>
-                setSort(
-                  event.target.value as SortOption,
-                )
-              }
-              className="cursor-pointer appearance-none rounded bg-transparent pr-6 font-semibold outline-none focus-visible:ring-2 focus-visible:ring-[#ef3a22]"
-            >
-              {SORT_OPTIONS.map(
-                (option) => (
-                  <option
-                    key={option}
-                    value={option}
-                    className="bg-[#1a2036]"
-                  >
-                    {option}
-                  </option>
-                ),
-              )}
-            </select>
-
-            <ChevronDown
-              className="pointer-events-none absolute right-0 h-4 w-4"
-              aria-hidden="true"
-            />
-          </label>
-        </div>
-
-        <div className="rounded-2xl border border-dashed border-white/10 bg-[#151d32] p-8 text-center text-slate-300">
-          <p className="font-semibold">
-            No sessions available
-            for this date.
-          </p>
-
-          <p className="mt-2 text-sm text-slate-500">
-            Try another date or clear
-            the current filters.
-          </p>
+          <p className="mt-2 text-sm text-slate-500">Try another date.</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div>
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-        <p className="text-sm font-semibold">
-          Showing {sessions.length}{' '}
-          {sessions.length === 1
-            ? 'session'
-            : 'sessions'}
-        </p>
+    <div className="flex flex-col gap-8">
+      <SessionsToolbar count={sessions.length} sort={sort} setSort={setSort} />
 
-        <label className="relative flex items-center gap-2 text-sm">
-          <span className="text-slate-400">
-            Sort:
-          </span>
+      {grouped.map(({ venueId, venueName, venueCity, sessions: venueSessions, halls }) => (
+        <article key={venueId} className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h3 className="text-sm font-semibold text-slate-200">
+              {venueName} <span className="font-normal text-slate-500">· {venueCity}</span>
+            </h3>
 
-          <select
-            value={sort}
-            onChange={(event) =>
-              setSort(
-                event.target.value as SortOption,
-              )
-            }
-            className="cursor-pointer appearance-none rounded bg-transparent pr-6 font-semibold outline-none focus-visible:ring-2 focus-visible:ring-[#ef3a22]"
-          >
-            {SORT_OPTIONS.map(
-              (option) => (
-                <option
-                  key={option}
-                  value={option}
-                  className="bg-[#1a2036]"
-                >
-                  {option}
-                </option>
-              ),
-            )}
-          </select>
-
-          <ChevronDown
-            className="pointer-events-none absolute right-0 h-4 w-4"
-            aria-hidden="true"
-          />
-        </label>
-      </div>
-
-      {grouped.map(
-        ({
-          venueId,
-          venueName,
-          venueCity,
-          sessions: venueSessions,
-        }) => (
-          <article
-            key={venueId}
-            className="border-b border-white/10 py-8 first:pt-0 last:border-b-0"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-bold">
-                  {venueName}
-                </h2>
-
-                <p className="mt-2 text-sm text-slate-300">
-                  {venueCity}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2 rounded-full border border-white/10 bg-[#111827] px-3 py-1.5 text-[11px] font-medium text-slate-300">
-                <CalendarDays
-                  className="h-3.5 w-3.5"
-                  aria-hidden="true"
-                />
-
-                {formatDateLabel(
-                  getSessionDate(
-                    venueSessions[0],
-                  ),
-                )}
-              </div>
+            <div className="flex items-center gap-2 rounded-full border border-slate-700/40 bg-[#162133]/90 px-3 py-1 text-[11px] font-medium text-slate-300">
+              <CalendarDays className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
+              {formatDateLabel(getSessionDate(venueSessions[0]))}
             </div>
+          </div>
 
-            <div className="mt-4 flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none]">
-              {venueSessions.map(
-                (session) => (
-                  <SessionCard
-                    key={session.id}
-                    session={session}
-                    minimumAge={minimumAge}
-                  />
-                ),
-              )}
-            </div>
-          </article>
-        ),
-      )}
+          <div className="flex flex-col gap-4">
+            {halls.map((hall) => (
+              <div
+                key={hall.hallId}
+                className="flex flex-col gap-4 rounded-2xl border border-slate-800/80 bg-[#101726]/80 p-5"
+              >
+                <span className="text-sm font-semibold text-slate-200">Hall {hall.hallName}</span>
+
+                <div className="flex flex-nowrap items-stretch gap-4 overflow-x-auto pb-1 [scrollbar-width:none]">
+                  {hall.sessions.map((session) => (
+                    <SessionCard key={session.id} session={session} minimumAge={minimumAge} />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </article>
+      ))}
     </div>
   )
 }
 
+/* ------------------------------------------------------------------ */
+/* Hero                                                                */
+/* ------------------------------------------------------------------ */
 
-function MovieHero({
-  movie,
-}: {
-  movie: MovieDetail
-}) {
+function MovieHero({ movie }: { movie: MovieDetail }) {
   const poster =
     movie.posterUrl ??
     'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?auto=format&fit=crop&w=1200&q=80'
 
+  const backdrop = movie.backdropUrl ?? poster
+
+  const genres = movie.genres.map((genre) => genre.name).join(' · ')
+  const formats = movie.formats.slice(0, 3)
+
   return (
-    <section className="relative overflow-hidden rounded-[32px] border border-white/10 bg-[#121a2d]">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(239,58,34,0.22),transparent_50%)]" />
+    <div className="relative w-full overflow-hidden bg-gradient-to-b from-[#112338] via-[#0b1726] to-[#050811]">
+      {/* Размытый фон */}
+      <div
+        className="pointer-events-none absolute inset-0 scale-105 bg-cover bg-center opacity-40 blur-[65px]"
+        style={{ backgroundImage: `url('${backdrop}')` }}
+      />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#070e1c]/90 via-[#0a182c]/70 to-[#061120]/95" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-[#050811]" />
 
-      <div className="relative grid gap-8 p-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:p-10">
-        <img
-          src={poster}
-          alt={`${movie.title} poster`}
-          className="h-[420px] w-full rounded-[22px] object-cover shadow-2xl shadow-black/30"
-        />
+      {/* Верхний отступ компенсирует шапку при overlayHeader */}
+      <div className={`relative z-10 pb-16 pt-[132px] ${PAGE_CONTAINER}`}>
+        <div className="flex flex-col items-start gap-10 pt-4 md:flex-row md:items-center">
+          {/* Постер */}
+          <div className="group relative shrink-0">
+            <div className="relative h-[375px] w-[280px] overflow-hidden rounded-2xl border border-slate-700/30 shadow-2xl shadow-black/80">
+              <img
+                src={poster}
+                alt={`${movie.title} poster`}
+                className="h-full w-full transform object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
+              />
+              <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/90 via-black/20 to-transparent p-5">
+                <p className="truncate text-center text-sm font-bold uppercase tracking-[0.25em] text-slate-200 drop-shadow-md">
+                  {movie.title}
+                </p>
+              </div>
+            </div>
+          </div>
 
-        <div className="flex flex-col justify-between gap-6">
-          <div>
-            <div className="mb-4 flex flex-wrap items-center gap-3">
-              <span className="rounded-full bg-[#ef3a22]/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#ef3a22]">
-                {movie.ageRating.code}
-              </span>
+          {/* Информация */}
+          <div className="flex max-w-2xl flex-col items-start gap-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="rounded-full border border-[#f93c24]/30 bg-[#3d1816]/70 px-3 py-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#f94f38]">
+                  {movie.isComingSoon ? 'Coming soon' : 'Now playing'}
+                </span>
+              </div>
 
-              <span className="text-sm text-slate-300">
-                {movie.kind}
+              <span className="text-xs text-slate-400">
+                {[movie.kind, genres].filter(Boolean).join(' · ')}
               </span>
             </div>
 
-            <h1 className="text-3xl font-black tracking-tight sm:text-5xl">
+            <h1 className="text-4xl font-black uppercase tracking-tight text-white md:text-5xl">
               {movie.title}
             </h1>
 
-            <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-slate-300">
-              <span>
-                {movie.runtimeMinutes} min
-              </span>
-
-              <span aria-hidden="true">
-                •
-              </span>
-
-              <span>
-                {movie.genres
-                  .map(
-                    (genre) =>
-                      genre.name,
-                  )
-                  .join(' • ') ||
-                  'Film'}
-              </span>
-
-              <span aria-hidden="true">
-                •
-              </span>
-
-              <span>
-                From{' '}
-                {formatGel(
-                  movie.fromPrice,
-                )}
-              </span>
-            </div>
-
-            <p className="mt-6 max-w-[760px] text-base leading-7 text-slate-200">
-              {movie.synopsis ||
-                'No synopsis available for this title yet.'}
+            <p className="max-w-xl text-sm font-normal leading-relaxed text-slate-300/90 md:text-base">
+              {movie.synopsis || 'No synopsis available for this title yet.'}
             </p>
-          </div>
 
-          <div className="grid gap-4 text-sm text-slate-200 sm:grid-cols-3">
-            <div className="rounded-2xl border border-white/10 bg-[#172033] p-4">
-              <p className="text-xs uppercase tracking-[0.1em] text-slate-400">
-                Director
-              </p>
+            <div className="flex flex-wrap items-center gap-3 pt-2">
+              <span className="rounded border border-[#f93c24]/40 bg-[#381a17]/80 px-2.5 py-1 text-[11px] font-bold text-[#f94f38]">
+                {movie.ageRating.code}
+              </span>
 
-              <p className="mt-2 font-semibold">
-                {movie.director ||
-                  'TBA'}
-              </p>
-            </div>
+              <div className="flex items-center gap-1.5 rounded-full border border-slate-700/40 bg-[#162133]/90 px-3 py-1 text-xs font-medium text-slate-300">
+                <Clock className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
+                <span>{movie.runtimeMinutes} Min</span>
+              </div>
 
-            <div className="rounded-2xl border border-white/10 bg-[#172033] p-4">
-              <p className="text-xs uppercase tracking-[0.1em] text-slate-400">
-                Cast
-              </p>
-
-              <p className="mt-2 font-semibold">
-                {movie.cast ||
-                  'TBA'}
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-[#172033] p-4">
-              <p className="text-xs uppercase tracking-[0.1em] text-slate-400">
-                Release
-              </p>
-
-              <p className="mt-2 font-semibold">
-                {movie.releaseDate
-                  ? formatReleaseDate(
-                      movie.releaseDate,
-                    )
-                  : 'TBA'}
-              </p>
+              {formats.map((format) => (
+                <span
+                  key={format.id}
+                  className="rounded-full border border-slate-700/40 bg-[#162133]/90 px-3.5 py-1 text-xs font-semibold uppercase tracking-wide text-slate-300"
+                >
+                  {format.name}
+                </span>
+              ))}
             </div>
           </div>
         </div>
       </div>
-    </section>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* Details sidebar                                                     */
+/* ------------------------------------------------------------------ */
+
+function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="mb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">{label}</div>
+      <div className="text-sm font-semibold leading-relaxed text-slate-100">{children}</div>
+    </div>
+  )
+}
+
+function MovieDetailsSidebar({ movie }: { movie: MovieDetail }) {
+  const formats = movie.formats.map((format) => format.name).join(', ')
+
+  return (
+    <aside className="flex flex-col gap-6 lg:col-span-4 lg:pl-6">
+      <h2 className="text-2xl font-bold tracking-tight text-white">Details</h2>
+
+      <div className="flex flex-col gap-5 text-xs">
+        <DetailRow label="Director">{movie.director || 'TBA'}</DetailRow>
+
+        <DetailRow label="Main cast">{movie.cast || 'TBA'}</DetailRow>
+
+        <DetailRow label="Duration">{movie.runtimeMinutes} minutes</DetailRow>
+
+        <DetailRow label="Release date">
+          {movie.releaseDate ? formatReleaseDate(movie.releaseDate) : 'TBA'}
+        </DetailRow>
+
+        <DetailRow label="Formats">{formats || 'Not announced'}</DetailRow>
+
+        <DetailRow label="From">
+          <span className="text-base font-bold text-white">{formatGel(movie.fromPrice)}</span>
+        </DetailRow>
+
+        <div className="mt-2 rounded-xl border border-[#8a531e]/30 bg-[#261d15]/60 p-4">
+          <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-[#f59e0b]">
+            Rating note
+          </div>
+          <div className="text-xs font-normal leading-relaxed text-[#d97706]/90">
+            <span className="font-semibold text-[#f59e0b]">{movie.ageRating.code}</span>{' '}
+            {movie.ageRating.description ||
+              `Tickets are restricted to viewers aged ${movie.ageRating.minAge} and over.`}
+          </div>
+        </div>
+      </div>
+    </aside>
   )
 }
 
@@ -867,27 +570,16 @@ function MovieHero({
  * We prefer the earliest movie/session date supplied by the API.
  * If the API doesn't provide any date, we fall back to today.
  */
-function getNextSevenDates(
-  movieDates: string[],
-  sessionDates: string[],
-) {
-  const sourceDates = [
-    ...movieDates,
-    ...sessionDates,
-  ]
+function getNextSevenDates(movieDates: string[], sessionDates: string[]) {
+  const sourceDates = [...movieDates, ...sessionDates]
     .filter(Boolean)
     .map(normalizeDate)
     .filter(Boolean)
     .sort()
 
-  const firstDate =
-    sourceDates[0] ??
-    normalizeDate(
-      new Date().toISOString().slice(0, 10),
-    )
+  const firstDate = sourceDates[0] ?? normalizeDate(new Date().toISOString().slice(0, 10))
 
-  const start =
-    parseDateOnly(firstDate)
+  const start = parseDateOnly(firstDate)
 
   if (!start) {
     return []
@@ -895,45 +587,31 @@ function getNextSevenDates(
 
   const dates: string[] = []
 
-  for (
-    let index = 0;
-    index < 7;
-    index += 1
-  ) {
+  for (let index = 0; index < 7; index += 1) {
     const date = new Date(start)
 
-    date.setDate(
-      start.getDate() + index,
-    )
+    date.setDate(start.getDate() + index)
 
-    const year =
-      date.getFullYear()
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
 
-    const month = String(
-      date.getMonth() + 1,
-    ).padStart(2, '0')
-
-    const day = String(
-      date.getDate(),
-    ).padStart(2, '0')
-
-    dates.push(
-      `${year}-${month}-${day}`,
-    )
+    dates.push(`${year}-${month}-${day}`)
   }
 
   return dates
 }
 
+/* ------------------------------------------------------------------ */
+/* Page                                                                */
+/* ------------------------------------------------------------------ */
+
 export default function MovieDetailsPage() {
-  const { slug } = useParams<{
-    slug: string
-  }>()
+  const { slug } = useParams<{ slug: string }>()
 
   const movieSlug = slug ?? ''
 
-  const movieQuery =
-    useMovie(movieSlug)
+  const movieQuery = useMovie(movieSlug)
 
   /**
    * First request without a date.
@@ -942,42 +620,21 @@ export default function MovieDetailsPage() {
    * which allows the page to construct the
    * seven-day selector.
    */
-  const initialSessionsQuery =
-    useMovieSessions(movieSlug)
+  const initialSessionsQuery = useMovieSessions(movieSlug)
 
-  const movie =
-    movieQuery.data
+  const movie = movieQuery.data
 
-  const initialSessions =
-    initialSessionsQuery.data ?? []
+  const initialSessions = initialSessionsQuery.data ?? []
 
-  const initialSessionDates =
-    useMemo(() => {
-      return initialSessions.flatMap(
-        (group) =>
-          group.sessions
-            .map(getSessionDate)
-            .filter(Boolean),
-      )
-    }, [initialSessions])
+  const initialSessionDates = useMemo(() => {
+    return initialSessions.flatMap((group) => group.sessions.map(getSessionDate).filter(Boolean))
+  }, [initialSessions])
 
-  const availableDates =
-    useMemo(() => {
-      return getNextSevenDates(
-        movie?.availableDates ?? [],
-        initialSessionDates,
-      )
-    }, [
-      movie?.availableDates,
-      initialSessionDates,
-    ])
+  const availableDates = useMemo(() => {
+    return getNextSevenDates(movie?.availableDates ?? [], initialSessionDates)
+  }, [movie?.availableDates, initialSessionDates])
 
-  const [
-    selectedDate,
-    setSelectedDate,
-  ] = useState<string | null>(
-    null,
-  )
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
 
   /**
    * The selected date must always be one of
@@ -988,505 +645,49 @@ export default function MovieDetailsPage() {
    * first available date.
    */
   const effectiveDate =
-    selectedDate &&
-    availableDates.includes(
-      selectedDate,
-    )
-      ? selectedDate
-      : availableDates[0] ??
-        null
+    selectedDate && availableDates.includes(selectedDate) ? selectedDate : (availableDates[0] ?? null)
 
-  const [selected, setSelected] =
-    useState<Set<string>>(
-      new Set(),
-    )
-
-  const [sort, setSort] =
-    useState<SortOption>(
-      'Showtime: earliest first',
-    )
+  const [sort, setSort] = useState<SortOption>('Showtime: earliest first')
 
   /**
    * Date-specific sessions request.
    */
-  const sessionsQuery =
-    useMovieSessions(
-      movieSlug,
-      effectiveDate ??
-        undefined,
+  const sessionsQuery = useMovieSessions(movieSlug, effectiveDate ?? undefined)
+
+  const sessions = sessionsQuery.data ?? []
+
+  const allSessions = useMemo<FlatSession[]>(
+    () => sessions.flatMap((group) => group.sessions),
+    [sessions],
+  )
+
+  const visibleSessions = useMemo(() => {
+    const filtered = allSessions.filter(
+      (session) => !effectiveDate || getSessionDate(session) === effectiveDate,
     )
 
-  const sessions =
-    sessionsQuery.data ?? []
+    const sorted = [...filtered]
 
-  const allSessions =
-    useMemo<FlatSession[]>(
-      () =>
-        sessions.flatMap(
-          (group) =>
-            group.sessions,
-        ),
-      [sessions],
-    )
-
-  /**
-   * Filter options are based on sessions
-   * available for the currently selected date.
-   */
-  const optionValues =
-    useMemo(() => {
-      const venueMap =
-        new Map<
-          string,
-          FilterOption
-        >()
-
-      const formatMap =
-        new Map<
-          string,
-          FilterOption
-        >()
-
-      const languageMap =
-        new Map<
-          string,
-          FilterOption
-        >()
-
-      const timeMap =
-        new Map<
-          string,
-          FilterOption
-        >()
-
-      for (const session of allSessions) {
-        const venueSlug =
-          session.venue.slug ||
-          String(
-            session.venue.id,
-          )
-
-        if (
-          !venueMap.has(
-            venueSlug,
-          )
-        ) {
-          venueMap.set(
-            venueSlug,
-            {
-              slug: venueSlug,
-              label:
-                session.venue
-                  .name,
-              hint:
-                session.venue
-                  .city,
-            },
-          )
-        }
-
-        const formatSlug =
-          session.format.slug ||
-          String(
-            session.format.id,
-          )
-
-        if (
-          !formatMap.has(
-            formatSlug,
-          )
-        ) {
-          formatMap.set(
-            formatSlug,
-            {
-              slug:
-                formatSlug,
-              label:
-                session.format
-                  .name,
-            },
-          )
-        }
-
-        const languageSlug =
-          session.language
-            .slug ||
-          String(
-            session.language
-              .id,
-          )
-
-        if (
-          !languageMap.has(
-            languageSlug,
-          )
-        ) {
-          languageMap.set(
-            languageSlug,
-            {
-              slug:
-                languageSlug,
-              label:
-                session
-                  .language
-                  .name,
-            },
-          )
-        }
-
-        const timeBand =
-          session.timeBand
-
-        if (
-          !timeMap.has(
-            timeBand,
-          )
-        ) {
-          timeMap.set(
-            timeBand,
-            {
-              slug:
-                timeBand,
-              label:
-                TIME_LABELS[
-                  timeBand
-                ],
-            },
-          )
-        }
-      }
-
-      return {
-        venues:
-          Array.from(
-            venueMap.values(),
-          ),
-        formats:
-          Array.from(
-            formatMap.values(),
-          ),
-        languages:
-          Array.from(
-            languageMap.values(),
-          ),
-        timeBands:
-          Array.from(
-            timeMap.values(),
-          ),
-      }
-    }, [allSessions])
-
-  /**
-   * If the selected filter no longer exists
-   * on the newly selected date, remove it.
-   *
-   * This prevents a hidden stale filter from
-   * making the page show zero sessions unexpectedly.
-   */
-  const validFilterKeys =
-    useMemo(() => {
-      const keys = new Set<string>()
-
-      for (const option of optionValues.venues) {
-        keys.add(
-          `Venue:${option.slug}`,
-        )
-      }
-
-      for (const option of optionValues.formats) {
-        keys.add(
-          `Format:${option.slug}`,
-        )
-      }
-
-      for (const option of optionValues.languages) {
-        keys.add(
-          `Language:${option.slug}`,
-        )
-      }
-
-      for (const option of optionValues.timeBands) {
-        keys.add(
-          `Time of day:${option.slug}`,
-        )
-      }
-
-      return keys
-    }, [optionValues])
-
-  const visibleSessions =
-    useMemo(() => {
-      const selectedFormats =
-        new Set<string>()
-
-      const selectedLanguages =
-        new Set<string>()
-
-      const selectedTimes =
-        new Set<string>()
-
-      const selectedVenues =
-        new Set<string>()
-
-      for (const key of selected) {
-        const separatorIndex =
-          key.indexOf(':')
-
-        if (
-          separatorIndex ===
-          -1
-        ) {
-          continue
-        }
-
-        const group =
-          key.slice(
-            0,
-            separatorIndex,
-          )
-
-        const value =
-          key.slice(
-            separatorIndex + 1,
-          )
-
-        if (
-          group === 'Venue'
-        ) {
-          selectedVenues.add(
-            value,
-          )
-        }
-
-        if (
-          group === 'Format'
-        ) {
-          selectedFormats.add(
-            value,
-          )
-        }
-
-        if (
-          group === 'Language'
-        ) {
-          selectedLanguages.add(
-            value,
-          )
-        }
-
-        if (
-          group ===
-          'Time of day'
-        ) {
-          selectedTimes.add(
-            value,
-          )
-        }
-      }
-
-      const filtered =
-        allSessions.filter(
-          (session) => {
-            const matchesDate =
-              !effectiveDate ||
-              getSessionDate(
-                session,
-              ) ===
-                effectiveDate
-
-            const venueSlug =
-              session.venue
-                .slug ||
-              String(
-                session.venue
-                  .id,
-              )
-
-            const formatSlug =
-              session.format
-                .slug ||
-              String(
-                session.format
-                  .id,
-              )
-
-            const languageSlug =
-              session.language
-                .slug ||
-              String(
-                session.language
-                  .id,
-              )
-
-            const matchesVenue =
-              selectedVenues.size ===
-                0 ||
-              selectedVenues.has(
-                venueSlug,
-              )
-
-            const matchesFormat =
-              selectedFormats.size ===
-                0 ||
-              selectedFormats.has(
-                formatSlug,
-              )
-
-            const matchesLanguage =
-              selectedLanguages.size ===
-                0 ||
-              selectedLanguages.has(
-                languageSlug,
-              )
-
-            const matchesTime =
-              selectedTimes.size ===
-                0 ||
-              selectedTimes.has(
-                session.timeBand,
-              )
-
-            return (
-              matchesDate &&
-              matchesVenue &&
-              matchesFormat &&
-              matchesLanguage &&
-              matchesTime
-            )
-          },
-        )
-
-      const sorted =
-        [...filtered]
-
-      if (
-        sort ===
-        'Showtime: latest first'
-      ) {
-        sorted.sort(
-          (a, b) =>
-            new Date(
-              b.startsAt,
-            ).getTime() -
-            new Date(
-              a.startsAt,
-            ).getTime(),
-        )
-      } else if (
-        sort ===
-        'Price: low to high'
-      ) {
-        sorted.sort(
-          (a, b) =>
-            a.price - b.price,
-        )
-      } else {
-        sorted.sort(
-          (a, b) =>
-            new Date(
-              a.startsAt,
-            ).getTime() -
-            new Date(
-              b.startsAt,
-            ).getTime(),
-        )
-      }
-
-      return sorted
-    }, [
-      allSessions,
-      effectiveDate,
-      selected,
-      sort,
-    ])
-
-  const toggleFilter = (
-    key: string,
-  ) => {
-    setSelected((current) => {
-      const next =
-        new Set(current)
-
-      if (next.has(key)) {
-        next.delete(key)
-      } else {
-        next.add(key)
-      }
-
-      return next
-    })
-  }
-
-  const clearFilters = () => {
-    setSelected(
-      new Set(),
-    )
-  }
-
-  /**
-   * Remove stale filters when switching dates.
-   *
-   * We deliberately do NOT reset the date here.
-   * Date is a separate selector, not a checkbox filter.
-   */
-  const cleanedSelected =
-    useMemo(() => {
-      const next =
-        new Set<string>()
-
-      for (const key of selected) {
-        if (
-          validFilterKeys.has(
-            key,
-          )
-        ) {
-          next.add(key)
-        }
-      }
-
-      return next
-    }, [
-      selected,
-      validFilterKeys,
-    ])
-
-  /**
-   * If some filter disappeared after changing date,
-   * synchronize the actual state.
-   */
-  if (
-    cleanedSelected.size !==
-      selected.size
-  ) {
-    const same =
-      Array.from(
-        cleanedSelected,
-      ).every((key) =>
-        selected.has(key),
-      )
-
-    if (!same) {
-      setSelected(
-        cleanedSelected,
-      )
+    if (sort === 'Showtime: latest first') {
+      sorted.sort((a, b) => new Date(b.startsAt).getTime() - new Date(a.startsAt).getTime())
+    } else if (sort === 'Price: low to high') {
+      sorted.sort((a, b) => a.price - b.price)
+    } else {
+      sorted.sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime())
     }
-  }
 
-  const isInitialLoading =
-    movieQuery.isLoading ||
-    initialSessionsQuery.isLoading
+    return sorted
+  }, [allSessions, effectiveDate, sort])
 
-  const isInitialError =
-    movieQuery.isError ||
-    initialSessionsQuery.isError
+  const isInitialLoading = movieQuery.isLoading || initialSessionsQuery.isLoading
+
+  const isInitialError = movieQuery.isError || initialSessionsQuery.isError
 
   if (isInitialLoading) {
     return (
       <AppLayout>
-        <div className="container py-12">
-          <Spinner
-            label="Loading movie details"
-          />
+        <div className={`py-12 ${PAGE_CONTAINER}`}>
+          <Spinner label="Loading movie details" />
         </div>
       </AppLayout>
     )
@@ -1495,12 +696,9 @@ export default function MovieDetailsPage() {
   if (isInitialError) {
     return (
       <AppLayout>
-        <div className="container py-12">
+        <div className={`py-12 ${PAGE_CONTAINER}`}>
           <ErrorBanner
-            message={parseApiError(
-              movieQuery.error ??
-                initialSessionsQuery.error,
-            ).message}
+            message={parseApiError(movieQuery.error ?? initialSessionsQuery.error).message}
             onRetry={() => {
               void movieQuery.refetch()
               void initialSessionsQuery.refetch()
@@ -1514,7 +712,7 @@ export default function MovieDetailsPage() {
   if (!movie) {
     return (
       <AppLayout>
-        <div className="container py-12">
+        <div className={`py-12 ${PAGE_CONTAINER}`}>
           <ErrorBanner message="Movie not found." />
         </div>
       </AppLayout>
@@ -1522,152 +720,43 @@ export default function MovieDetailsPage() {
   }
 
   return (
-    <AppLayout>
-      <div className="min-h-screen bg-[#0f1115] px-6 py-6 text-white">
-        <div className="mx-auto max-w-[1728px]">
-          <MovieHero
-            movie={movie}
-          />
+    <AppLayout overlayHeader>
+      <div className="w-full bg-[#050811] text-white">
+        <MovieHero movie={movie} />
 
-          <main className="mt-8 flex max-w-[1728px] flex-col gap-8 lg:flex-row">
-            <Filters
-              selected={selected}
-              date={effectiveDate}
-              dates={availableDates}
-              options={
-                optionValues
-              }
-              onToggle={
-                toggleFilter
-              }
-              onDateChange={
-                setSelectedDate
-              }
-              onClear={
-                clearFilters
-              }
-            />
+        <main className={`grid grid-cols-1 gap-12 py-10 lg:grid-cols-12 ${PAGE_CONTAINER}`}>
+          {/* Левая колонка: сеансы */}
+          <div className="flex min-w-0 flex-col gap-8 lg:col-span-8">
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight text-white">Sessions</h2>
+              <p className="mt-1 text-xs font-normal text-slate-400">
+                {effectiveDate
+                  ? `${visibleSessions.length} ${
+                      visibleSessions.length === 1 ? 'session' : 'sessions'
+                    } on ${formatDateLabel(effectiveDate)}`
+                  : 'Choose a date to see showtimes'}
+              </p>
+            </div>
 
-            <section className="min-w-0 flex-1">
-              <div className="mb-6 rounded-2xl border border-white/10 bg-[#121a2d] p-5">
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#ff735d]">
-                      7-day showtimes
-                    </p>
+            <DateSelector date={effectiveDate} dates={availableDates} onDateChange={setSelectedDate} />
 
-                    <h2 className="mt-1 text-xl font-bold">
-                      Choose a date
-                    </h2>
-                  </div>
+            {sessionsQuery.isFetching ? <Spinner label="Loading showtimes" /> : null}
 
-                  {effectiveDate ? (
-                    <div className="flex items-center gap-2 text-sm text-slate-300">
-                      <CalendarDays
-                        className="h-4 w-4"
-                        aria-hidden="true"
-                      />
+            {sessionsQuery.isError ? (
+              <ErrorBanner
+                message={parseApiError(sessionsQuery.error).message}
+                onRetry={() => void sessionsQuery.refetch()}
+              />
+            ) : null}
 
-                      {formatDateLabel(
-                        effectiveDate,
-                      )}
-                    </div>
-                  ) : null}
-                </div>
+            {!sessionsQuery.isError && !sessionsQuery.isFetching ? (
+              <SessionsList sort={sort} setSort={setSort} sessions={visibleSessions} minimumAge={0} />
+            ) : null}
+          </div>
 
-                {availableDates.length >
-                0 ? (
-                  <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
-                    {availableDates.map(
-                      (value) => {
-                        const active =
-                          effectiveDate ===
-                          value
-
-                        return (
-                          <button
-                            key={value}
-                            type="button"
-                            aria-pressed={
-                              active
-                            }
-                            onClick={() =>
-                              setSelectedDate(
-                                value,
-                              )
-                            }
-                            className={`rounded-xl border px-2 py-3 text-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ef3a22] ${
-                              active
-                                ? 'border-[#ef3a22] bg-[#ef3a22] text-white'
-                                : 'border-white/10 bg-[#1a2036] text-slate-300 hover:border-white/20 hover:bg-[#232a45]'
-                            }`}
-                          >
-                            <span className="block text-[11px] font-semibold uppercase">
-                              {formatDateWeekday(
-                                value,
-                              )}
-                            </span>
-
-                            <span className="mt-1 block text-lg font-bold">
-                              {formatDateDay(
-                                value,
-                              )}
-                            </span>
-
-                            <span className="mt-1 block text-[10px] text-current/70">
-                              {formatDateLabel(
-                                value,
-                              ).split(
-                                ' ',
-                              ).slice(
-                                1,
-                              ).join(
-                                ' ',
-                              )}
-                            </span>
-                          </button>
-                        )
-                      },
-                    )}
-                  </div>
-                ) : (
-                  <div className="mt-5 rounded-xl border border-dashed border-white/10 bg-[#1a2036] p-5 text-center text-sm text-slate-400">
-                    No showtime dates are
-                    available for this
-                    movie.
-                  </div>
-                )}
-              </div>
-
-              {sessionsQuery.isFetching ? (
-                <div className="mb-5">
-                  <Spinner
-                    label="Loading showtimes"
-                  />
-                </div>
-              ) : null}
-
-              {sessionsQuery.isError ? (
-                <ErrorBanner
-                  message={parseApiError(
-                    sessionsQuery.error,
-                  ).message}
-                  onRetry={() =>
-                    void sessionsQuery.refetch()
-                  }
-                />
-              ) : null}
-
-              {!sessionsQuery.isError &&
-              !sessionsQuery.isFetching ? (
-                <SessionsList
-                    sort={sort}
-                    setSort={setSort}
-                    sessions={visibleSessions} minimumAge={0}                />
-              ) : null}
-            </section>
-          </main>
-        </div>
+          {/* Правая колонка: детали */}
+          <MovieDetailsSidebar movie={movie} />
+        </main>
       </div>
     </AppLayout>
   )

@@ -1,11 +1,16 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
-@import "tailwindcss";
 
 :root { color-scheme: dark; }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
-body { margin: 0; background: #070b1b; color: #f7f7fa; font-family: Arial, Helvetica, sans-serif; }
+body { margin: 0; padding: 0; background-color: #050811; color: #ffffff; font-family: 'Inter', system-ui, -apple-system, sans-serif; overflow-x: hidden; }
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #050811; }
+::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #334155; }
 button, input { font: inherit; }
 button { cursor: pointer; border: 0; }
 .container { width: min(100% - 7.5rem, 1450px); margin-inline: auto; }

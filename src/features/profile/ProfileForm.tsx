@@ -6,7 +6,7 @@ import { queryKeys } from '@/app/queryClient'
 import { useAuth } from '@/hooks/useAuth'
 import { useFilterOptions } from '@/features/sessions/sessionsQueries'
 import { updateProfile } from './profileApi'
-import { setReplay, setUser } from '@/features/auth/authSlice'
+import { closeProfileModal, setReplay, setUser } from '@/features/auth/authSlice'
 import { useDispatch, useSelector } from 'react-redux'
 import { digitsOnly, formatMobileDisplay } from '@/utils/formatters'
 import { flattenErrors, validateProfile } from '@/utils/validation'
@@ -39,16 +39,28 @@ export function ProfileForm({ onSaved, compact = false }: { onSaved?: () => void
 
   const mutation = useMutation({
     mutationFn: updateProfile,
-    onSuccess(next) {
-      dispatch(setUser(next))
-      void queryClient.invalidateQueries({ queryKey: queryKeys.me })
-      setSaved(true)
-      onSaved?.()
-      if (replay?.type === 'book' && next.profileComplete) {
-        dispatch(openBooking(replay.sessionId))
-        dispatch(setReplay(null))
-      }
-    },
+  async onSuccess(next) {
+  dispatch(setUser(next))
+
+  await queryClient.invalidateQueries({
+    queryKey: queryKeys.me,
+  })
+
+  setSaved(true)
+
+  if (replay?.type === 'book' && next.profileComplete) {
+    dispatch(closeProfileModal())
+
+    dispatch(openBooking(replay.sessionId))
+
+    dispatch(setReplay(null))
+
+    return
+  }
+
+  onSaved?.()
+},
+
   })
 
   const localErrors = validateProfile({ fullName, mobileNumber, dateOfBirth })
@@ -59,15 +71,22 @@ export function ProfileForm({ onSaved, compact = false }: { onSaved?: () => void
   }
 
   const dirty = useMemo(() => {
-    if (!user) return false
-    return (
-      fullName.trim() !== (user.fullName ?? '') ||
-      digitsOnly(mobileNumber) !== (user.mobileNumber ?? '') ||
-      dateOfBirth !== (user.dateOfBirth ?? '') ||
-      (preferredVenueId || null) !== (user.preferredVenue?.id ?? null) ||
-      Boolean(avatar)
-    )
-  }, [avatar, dateOfBirth, fullName, mobileNumber, preferredVenueId, user])
+  if (!user) return false
+
+  return (
+    fullName.trim() !== (user.fullName ?? '') ||
+    digitsOnly(mobileNumber) !== (user.mobileNumber ?? '') ||
+    dateOfBirth !== (user.dateOfBirth ?? '') ||
+    (preferredVenueId || null) !== (user.preferredVenue?.id ?? null)
+  )
+}, [
+  dateOfBirth,
+  fullName,
+  mobileNumber,
+  preferredVenueId,
+  user,
+])
+
 
   const invalid = Object.keys(localErrors).length > 0
   const show = (name: string) => submitted || Boolean(touched[name])

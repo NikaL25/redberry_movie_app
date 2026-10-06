@@ -1,7 +1,7 @@
 import { api } from '@/api/axios'
 import { endpoints } from '@/api/endpoints'
 import type { MovieSessions } from '@/types/api'
-import type { Movie, MovieDetail, VenueSessionGroup } from '@/types/models'
+import type { Movie, MovieDetail} from '@/types/models'
 
 export async function fetchFeatured() {
   const { data } = await api.get<{ data: Movie[] }>(endpoints.featured)

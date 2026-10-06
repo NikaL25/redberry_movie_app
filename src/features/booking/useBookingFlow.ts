@@ -7,44 +7,30 @@ import {
   setReplay,
 } from '@/features/auth/authSlice'
 
-import { openBooking } from '@/features/booking/bookingSlice'
+import { openBooking } from './bookingSlice'
 import { useAuth } from '@/hooks/useAuth'
 
 export function useBookingFlow() {
   const dispatch = useDispatch()
-
-  const {
-    isAuthenticated,
-    user,
-  } = useAuth()
+  const { isAuthenticated, user, status } = useAuth()
 
   const startBooking = useCallback(
     (sessionId: number) => {
-      /**
-       * Некорректный sessionId
-       * не должен запускать booking flow.
-       */
-      if (
-        !Number.isFinite(sessionId) ||
-        sessionId <= 0
-      ) {
+      // Ignore invalid session IDs.
+      if (!Number.isFinite(sessionId) || sessionId <= 0) {
         return
       }
 
-      /**
-       * --------------------------------------------------
-       * GUEST
-       * --------------------------------------------------
-       *
-       * Сохраняем защищённое действие.
-       *
-       * После успешного login replay автоматически
-       * продолжит booking.
-       */
-      if (
-        !isAuthenticated ||
-        !user
-      ) {
+      // Wait until authentication state has been restored.
+      // This prevents treating an authenticated user as a guest
+      // while /me or persisted auth state is still loading.
+      if (status === 'loading') {
+        return
+      }
+
+      // Guest:
+      // remember the protected action and open Login.
+      if (!isAuthenticated || !user) {
         dispatch(
           setReplay({
             type: 'book',
@@ -52,24 +38,12 @@ export function useBookingFlow() {
           }),
         )
 
-        dispatch(
-          openAuthModal('login'),
-        )
-
+        dispatch(openAuthModal('login'))
         return
       }
 
-      /**
-       * --------------------------------------------------
-       * AUTHENTICATED + INCOMPLETE PROFILE
-       * --------------------------------------------------
-       *
-       * Booking запрещён до заполнения обязательных
-       * данных профиля.
-       *
-       * Replay сохраняется, чтобы после Save Changes
-       * booking был продолжен автоматически.
-       */
+      // Authenticated user with an incomplete profile:
+      // remember the booking action and open Profile.
       if (!user.profileComplete) {
         dispatch(
           setReplay({
@@ -78,27 +52,15 @@ export function useBookingFlow() {
           }),
         )
 
-        dispatch(
-          openProfileModal(),
-        )
-
+        dispatch(openProfileModal())
         return
       }
 
-      /**
-       * --------------------------------------------------
-       * AUTHENTICATED + COMPLETE PROFILE
-       * --------------------------------------------------
-       */
-      dispatch(
-        openBooking(sessionId),
-      )
+      // Authenticated user with a complete profile:
+      // continue directly to seat selection.
+      dispatch(openBooking(sessionId))
     },
-    [
-      dispatch,
-      isAuthenticated,
-      user,
-    ],
+    [dispatch, isAuthenticated, status, user],
   )
 
   return {
