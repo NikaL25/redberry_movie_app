@@ -1,4 +1,4 @@
-import { Logo } from './Header'
+import { Logo } from '../components/layout/Header'
 
 export const Footer = () => (
   <footer className="mt-auto w-full border-t border-white/[0.06]">

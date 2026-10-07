@@ -14,9 +14,13 @@ export function ComingSoonCard({ movie }: { movie: Movie }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { isAuthenticated } = useAuth()
+
   const mutation = useMutation({
     mutationFn: () => notifyMovie(movie.slug),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.comingSoon(6) }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.comingSoon(6),
+      }),
   })
 
   const onNotify = () => {
@@ -25,55 +29,75 @@ export function ComingSoonCard({ movie }: { movie: Movie }) {
       dispatch(openAuthModal('login'))
       return
     }
+
     mutation.mutate()
   }
 
   const isNotified = movie.isNotified || mutation.isSuccess
 
   return (
-    <article className="flex w-full max-w-[470px] h-[160px] gap-4 p-3 rounded-2xl bg-[#121926] hover:bg-[#161f30] border border-white/[0.05] transition duration-200">
-      {/* Постер 229×136, прижат к левому краю */}
+    <article className="box-border flex h-[160px] w-[435px] max-w-[435px] shrink-0 gap-4 rounded-2xl border border-white/[0.05] bg-[#121926] p-3 transition duration-200 hover:bg-[#161f30]">
+      {/* Постер: ровно 229 × 136 */}
       <button
         type="button"
         onClick={() => navigate(`/movies/${movie.slug}`)}
-        className="block w-[229px] h-[136px] shrink-0 rounded-xl overflow-hidden bg-[#0a0f18] p-0 border-0 cursor-pointer"
+        className="box-border block h-[136px] w-[220px] min-w-[220px] max-w-[220px] shrink-0 cursor-pointer overflow-hidden rounded-xl border-0 bg-[#0a0f18] p-0"
       >
         {movie.backdropUrl || movie.posterUrl ? (
-          <img src={movie.backdropUrl ?? movie.posterUrl ?? ''} alt="" className="w-full h-full object-cover" />
+          <img
+            src={movie.backdropUrl ?? movie.posterUrl ?? ''}
+            alt=""
+            className="block h-[136px] w-[220px] min-w-[220px] max-w-[220px] object-cover"
+          />
         ) : null}
       </button>
 
-      {/* Контент: 470 − 12 − 229 − 16 − 12 = 201px */}
-      <div className="flex flex-col justify-between flex-1 min-w-0 py-0.5">
+      {/* Правая часть: оставшиеся 201px */}
+      <div className="flex h-[136px] min-w-0 flex-1 flex-col py-0.5">
+        {/* Информация о фильме */}
         <div className="min-w-0">
-          <b className="block text-[10px] font-bold tracking-wider text-[#e63920] uppercase truncate">
+          <b className="block truncate text-[10px] font-bold uppercase tracking-wider text-[#e63920]">
             {formatInCinemas(movie.releaseDate)}
           </b>
-          <h3 className="mt-1 text-[13px] font-bold leading-tight text-white truncate">
-            <Link to={`/movies/${movie.slug}`} className="hover:text-white/80 transition">
+
+          <h3 className="mt-1 truncate text-[13px] font-bold leading-tight text-white">
+            <Link
+              to={`/movies/${movie.slug}`}
+              className="transition hover:text-white/80"
+            >
               {movie.title}
             </Link>
           </h3>
-          <p className="mt-0.5 text-[10.5px] text-white/50 truncate">
+
+          <p className="mt-0.5 truncate text-[10.5px] text-white/50">
             {movie.genres[0]?.name ?? movie.kind} · {movie.runtimeMinutes} min
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <small className="inline-block px-2 py-0.5 rounded-full text-[9px] font-bold text-[#e63920] bg-[#e63920]/15 border border-[#e63920]/40">
+        {/* Нижняя часть */}
+        <div className="mt-auto flex flex-col items-start gap-7">
+          {/* Возраст */}
+          <small className="inline-flex h-[18px] items-center rounded-full border border-[#e63920]/40 bg-[#e63920]/15 px-2 text-[9px] font-bold leading-none text-[#e63920]">
             {movie.ageRating.code}
           </small>
+
+          {/* Notify Me */}
           <button
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-[11px] font-medium whitespace-nowrap transition disabled:cursor-default ${
+            className={`flex h-[26px] items-center gap-1.5 rounded-full border px-3 text-[10.5px] font-medium leading-none whitespace-nowrap transition disabled:cursor-default ${
               isNotified
-                ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
-                : 'bg-white/[0.05] hover:bg-white/[0.1] text-white/80 border-white/10 disabled:opacity-60'
+                ? 'border-emerald-500/40 bg-emerald-500/20 text-emerald-400'
+                : 'border-white/10 bg-white/[0.05] text-white/80 hover:bg-white/[0.1] disabled:opacity-60'
             }`}
             type="button"
             onClick={onNotify}
             disabled={mutation.isPending || movie.isNotified}
           >
-            {isNotified ? <Check size={12} /> : <Bell size={12} />}
+            {isNotified ? (
+              <Check size={12} />
+            ) : (
+              <Bell size={12} />
+            )}
+
             {isNotified ? 'You’ll be notified' : 'Notify Me'}
           </button>
         </div>

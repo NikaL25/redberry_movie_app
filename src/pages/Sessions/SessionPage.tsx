@@ -40,7 +40,7 @@ function Hero({ movie, details }: { movie: Movie | undefined; details: MovieDeta
       <div className="absolute inset-0 -z-10 bg-gradient-to-r from-[#090d17]/95 via-[#090d17]/75 to-[#090d17]/30" />
       <div className="absolute inset-0 -z-10 bg-gradient-to-t from-[#090d17] via-transparent to-[#090d17]/30" />
 
-      <div className="mx-auto flex min-h-[380px] w-full max-w-[1780px] items-end gap-7 px-8 pb-10 pt-28 md:min-h-[500px] md:gap-10 md:pb-14">
+      <div className="mx-auto flex min-h-[380px] w-full max-w-[1980px] items-end gap-7 px-8 pb-10 pt-28 md:min-h-[500px] md:gap-10 md:pb-14">
         {movie?.posterUrl ? (
           <img
             src={movie.posterUrl}
@@ -618,7 +618,7 @@ export function SessionPage() {
     <AppLayout overlayHeader={SHOW_FEATURED_MOVIE}>
       {SHOW_FEATURED_MOVIE ? <Hero movie={featuredMovie} details={detailsQuery.data} /> : null}
 
-      <main className="mx-auto w-full max-w-[1780px] px-8 pb-16 pt-8">
+    <main className="mx-auto w-full max-w-[1800px] px-0 pb-16 pt-8">
         {/* Заголовок страницы + поиск */}
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -626,16 +626,7 @@ export function SessionPage() {
             <p className="mt-0.5 text-[13px] text-[#717d96]">Browse showtimes across all venues</p>
           </div>
 
-          <label className="flex h-10 w-full items-center rounded-full border border-transparent bg-[#121622] px-4 transition-all duration-200 focus-within:border-[#27324a] focus-within:bg-[#161b2a] hover:bg-[#161b2a] sm:max-w-sm">
-            <span className="sr-only">Search sessions</span>
-            <input
-              type="search"
-              value={filters.search}
-              onChange={(event) => setFilters({ search: event.target.value })}
-              placeholder="Search films and live events"
-              className="w-full bg-transparent text-[13px] text-white outline-none placeholder:text-[#626e84]"
-            />
-          </label>
+     
         </div>
 
         {options.isLoading ? <Spinner label="Loading session filters" /> : null}

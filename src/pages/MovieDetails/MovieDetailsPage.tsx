@@ -17,7 +17,7 @@ type FlatSession = Session
 
 const SORT_OPTIONS = ['Showtime: earliest first', 'Showtime: latest first', 'Price: low to high'] as const
 
-const PAGE_CONTAINER = 'mx-auto w-full max-w-[1720px] px-8 lg:px-16'
+const PAGE_CONTAINER = 'mx-auto w-full max-w-[1800px] px-5 sm:px-8 lg:px-0'
 
 /**
  * Parse YYYY-MM-DD without UTC timezone conversion.

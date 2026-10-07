@@ -96,7 +96,7 @@ export default function ProfilePage() {
           </div>
 
           <button className="bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-8 rounded-lg text-sm transition mt-4">
-            Save changes
+            Save changesss
           </button>
         </div>
       </main>
