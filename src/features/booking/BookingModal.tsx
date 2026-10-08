@@ -45,7 +45,7 @@ import {
 } from './bookingApi'
 
 import { HOLD_STORAGE_KEY } from './bookingSlice'
-import { useHoldTimer } from '@/hooks/useHoldTimer'
+import { useHoldTimer } from './useHoldTimer'
 
 import {
   digitsOnly,
@@ -63,7 +63,7 @@ import {
 } from '@/utils/errorHandling'
 
 import type { Seat, TicketType } from '@/types/models'
-import { useAuth } from '@/hooks/useAuth'
+import { useAuth } from '@/features/auth/useAuth'
 
 /* ------------------------------------------------------------------ */
 /* Общие стили и хелперы                                               */

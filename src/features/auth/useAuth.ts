@@ -4,14 +4,14 @@ import { useDispatch, useSelector } from 'react-redux'
 
 import { queryKeys } from '@/app/queryClient'
 import type { RootState } from '@/app/store'
-import { fetchMe, logout } from '@/features/auth/authApi'
+import { fetchMe, logout } from './authApi'
 import {
   clearSession,
   setAuthStatus,
   setUser,
   openAuthModal,
   setReplay,
-} from '@/features/auth/authSlice'
+} from './authSlice'
 
 export function useAuth() {
   const dispatch = useDispatch()

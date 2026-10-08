@@ -4,7 +4,7 @@ import { ProfileForm } from './ProfileForm'
 import type { RootState } from '@/app/store'
 import { closeProfileModal } from '@/features/auth/authSlice'
 import { useDispatch } from 'react-redux'
-import { useAuth } from '@/hooks/useAuth'
+import { useAuth } from '@/features/auth/useAuth'
 
 export function ProfileModal() {
   const dispatch = useDispatch()

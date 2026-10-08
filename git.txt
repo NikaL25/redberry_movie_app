@@ -1,0 +1,325 @@
+PROJECT ARCHITECTURE HISTORY
+============================
+
+COMMIT 1
+feat(project) - initialize Vite React TypeScript cinema app
+
+Создано:
+- package.json
+- vite.config.ts
+- tsconfig.json / tsconfig.app.json / tsconfig.node.json
+- index.html
+- src/main.tsx
+- src/App.tsx
+- src/index.css
+- src/vite-env.d.ts
+
+Назначение:
+Создана точка входа приложения: Vite + React 19 + TypeScript, alias `@` → `src`, Tailwind 4, подключение корневых провайдеров позже.
+
+
+COMMIT 2
+feat(architecture) - establish application layers
+
+Создано:
+- src/app/
+- src/api/
+- src/pages/
+- src/components/
+- src/features/
+- src/routes/
+- src/types/
+- src/utils/
+- src/hooks/
+
+Назначение:
+Зафиксированы границы: bootstrap приложения, HTTP-клиент, страницы-роуты, shared UI, доменные features, маршруты, типы и утилиты. Это не FSD, а смешанная feature + layer структура под размер кино-приложения.
+
+
+COMMIT 3
+feat(routing) - add application routes
+
+Создано:
+- src/routes/AppRoutes.tsx
+- src/routes/ProtectedRoute.tsx
+- src/pages/Home/HomePage.tsx
+- src/pages/Sessions/SessionPage.tsx
+- src/pages/MovieDetails/MovieDetailsPage.tsx
+- src/pages/Profile/ProfilePage.tsx
+
+Изменено:
+- src/App.tsx рендерит маршруты и глобальные модалки
+
+Результат:
+Маршруты `/`, `/sessions`, `/movies/:slug`, `/profile` и fallback на `/`. Profile защищён через ProtectedRoute без смены URL на login.
+
+
+COMMIT 4
+feat(ui) - add shared layout and primitive components
+
+Создано:
+- src/components/layout/AppLayout.tsx
+- src/components/layout/Header.tsx
+- src/components/layout/Footer.tsx
+- src/components/feedback/Status.tsx
+- src/components/modals/ModalOverlay.tsx
+- src/components/ui/Button.tsx
+- src/components/ui/Input.tsx
+
+Назначение:
+Общий каркас страниц (header/footer), статусы загрузки/ошибок, overlay модалок и примитивы форм. Feature-UI остаётся в `features/`, page-specific разметка — в страницах.
+
+
+COMMIT 5
+feat(features) - isolate cinema domain modules
+
+Создано:
+- src/features/movies/ (MovieCard, ComingSoonCard, HeroCarousel, SearchTypeahead, moviesApi, moviesQueries)
+- src/features/sessions/ (sessionsApi, sessionsQueries)
+- src/features/auth/ (AuthModal, authApi, authSlice)
+- src/features/booking/ (BookingModal, bookingApi, bookingSlice, useBookingFlow)
+- src/features/profile/ (ProfileForm, ProfileModal, TicketsPanel, profileApi, profileQueries)
+
+Назначение:
+Домен кинотеатра разделён по реальному функционалу: фильмы, сеансы, авторизация, бронирование, профиль/билеты. Страницы только композируют features.
+
+
+COMMIT 6
+refactor(hooks) - colocate feature hooks and keep generic debounce shared
+
+Создано / перемещено:
+- src/features/auth/useAuth.ts
+- src/features/booking/useHoldTimer.ts
+- src/features/sessions/useUrlFilters.ts
+- src/hooks/useDebounce.ts (оставлен как единственный genuinely shared hook)
+
+Изменено:
+- импорты в Header, страницах, ProtectedRoute, booking/profile/movies
+
+Назначение:
+Auth, hold-таймер и URL-фильтры сеансов принадлежат своим features. В `hooks/` остаётся только переиспользуемый debounce.
+
+
+COMMIT 7
+feat(api) - isolate HTTP client and endpoint map
+
+Создано:
+- src/api/axios.ts
+- src/api/endpoints.ts
+- src/features/*/moviesApi.ts, sessionsApi.ts, authApi.ts, bookingApi.ts, profileApi.ts
+- src/features/*/moviesQueries.ts, sessionsQueries.ts, profileQueries.ts
+
+Назначение:
+Axios-инстанс, base URL и карта endpoints отделены от UI. React Query-хуки живут рядом с feature API, не внутри страниц. Поведение запросов не менялось.
+
+
+COMMIT 8
+feat(types) - organize domain and API contracts
+
+Создано:
+- src/types/models.d.ts
+- src/types/api.d.ts
+
+Назначение:
+Модели кинотеатра (Movie, Session, User, Seat, Order) отделены от контрактов HTTP (payloads, envelopes, SessionFilters). Типы не свалены в один глобальный файл и не продублированы по features.
+
+
+COMMIT 9
+feat(utils) - group formatters, validation and error parsing
+
+Создано:
+- src/utils/formatters.ts
+- src/utils/validation.ts
+- src/utils/errorHandling.ts
+- src/utils/cn.ts
+
+Назначение:
+Форматирование дат/цен, клиентская валидация auth/profile/checkout, разбор API-ошибок и className merge. Папки helpers/common не создавались.
+
+
+COMMIT 10
+feat(state) - wire Redux store and React Query client
+
+Создано:
+- src/app/store.ts
+- src/app/rootReducer.ts
+- src/app/queryClient.ts
+- src/features/auth/authSlice.ts
+- src/features/booking/bookingSlice.ts
+
+Изменено:
+- src/main.tsx: Provider + QueryClientProvider + BrowserRouter + injectStore(api)
+
+Назначение:
+Клиентский state: сессия/модалки auth и поток booking в Redux; серверный кэш фильмов/сеансов/тикетов в React Query. Два store не смешиваются.
+
+
+COMMIT 11
+feat(styles) - keep Tailwind plus global cinema stylesheet
+
+Создано:
+- src/index.css (Tailwind, reset, modal/hatched utilities, leftover layout classes used by ModalOverlay)
+
+Удалено позднее как мёртвые артефакты:
+- src/App.css (шаблон Vite)
+- src/globals.css (неподключённый дубль)
+- src/app/index.css (пустой файл)
+- неиспользуемые src/assets шаблона (react.svg, vite.svg, hero.png)
+
+Назначение:
+Стилизация остаётся Tailwind + один глобальный CSS. Стек не менялся.
+
+
+COMMIT 12
+refactor(dependencies) - align module boundaries
+
+Изменено:
+- pages → features / components / utils
+- features → api / types / app query keys / соседние features только там, где сценарий реально связан (auth replay → booking, profile venue options → sessions)
+- components/layout может использовать SearchTypeahead и useAuth (shell приложения)
+- api/axios читает TOKEN_KEY и replay из authSlice через injectStore (существующий контракт 401)
+
+Результат:
+Направление зависимостей: UI страниц зависит от features, features — от api/types/app. Циклов A→B→C→A нет.
+
+
+COMMIT 13
+refactor(pages) - keep large cohesive screens intact
+
+Сознательно не разделялись:
+- src/features/booking/BookingModal.tsx — один поток hold/seats/checkout
+- src/pages/MovieDetails/MovieDetailsPage.tsx — один экран фильма + сеансы дня
+- src/pages/Sessions/SessionPage.tsx — один экран каталога сеансов с фильтрами
+- src/components/layout/Header.tsx — один shell header
+- src/features/auth/AuthModal.tsx — один login/register UI
+
+Назначение:
+Внутри нет отдельного API-слоя или независимых hooks, которые стоило выносить. Дробление ухудшило бы навигацию по одному сценарию.
+
+
+COMMIT 14
+refactor(cleanup) - remove leftover template and misplaced hooks
+
+Удалено:
+- src/index.tsx (пустой, entry — main.tsx)
+- src/App.css, src/globals.css, src/app/index.css
+- src/assets шаблона Vite
+- src/hooks/useAuth.ts, useHoldTimer.ts, useUrlFilters.ts после переноса
+
+Изменено:
+- импорты на новые пути features
+
+Результат:
+В репозитории не остаются мёртвые entry/CSS/ассеты и «глобальные» hooks, которые принадлежат одному feature.
+
+
+COMMIT 15
+refactor(architecture) - finalize feature-based cinema app structure
+
+Финальное состояние:
+- entry: main.tsx → App → routes + global modals
+- app: Redux + QueryClient
+- api: axios + endpoints
+- features: auth, booking, movies, profile, sessions
+- pages: Home, Sessions, MovieDetails, Profile
+- shared: layout, feedback, modals, ui
+- types, utils, generic hooks
+
+Результат:
+Архитектура закончена, границы модулей ясны, поведение приложения идентично исходному.
+
+
+FINAL ARCHITECTURE
+==================
+
+src/
+├── main.tsx
+├── App.tsx
+├── index.css
+├── vite-env.d.ts
+├── api/
+│   ├── axios.ts
+│   └── endpoints.ts
+├── app/
+│   ├── store.ts
+│   ├── rootReducer.ts
+│   └── queryClient.ts
+├── components/
+│   ├── layout/
+│   │   ├── AppLayout.tsx
+│   │   ├── Header.tsx
+│   │   └── Footer.tsx
+│   ├── feedback/
+│   │   └── Status.tsx
+│   ├── modals/
+│   │   └── ModalOverlay.tsx
+│   └── ui/
+│       ├── Button.tsx
+│       └── Input.tsx
+├── features/
+│   ├── auth/
+│   │   ├── authApi.ts
+│   │   ├── authSlice.ts
+│   │   ├── AuthModal.tsx
+│   │   └── useAuth.ts
+│   ├── booking/
+│   │   ├── bookingApi.ts
+│   │   ├── bookingSlice.ts
+│   │   ├── BookingModal.tsx
+│   │   ├── useBookingFlow.ts
+│   │   └── useHoldTimer.ts
+│   ├── movies/
+│   │   ├── moviesApi.ts
+│   │   ├── moviesQueries.ts
+│   │   ├── MovieCard.tsx
+│   │   ├── ComingSoonCard.tsx
+│   │   ├── HeroCarousel.tsx
+│   │   └── SearchTypeahead.tsx
+│   ├── profile/
+│   │   ├── profileApi.ts
+│   │   ├── profileQueries.ts
+│   │   ├── ProfileForm.tsx
+│   │   ├── ProfileModal.tsx
+│   │   └── TicketsPanel.tsx
+│   └── sessions/
+│       ├── sessionsApi.ts
+│       ├── sessionsQueries.ts
+│       └── useUrlFilters.ts
+├── hooks/
+│   └── useDebounce.ts
+├── pages/
+│   ├── Home/HomePage.tsx
+│   ├── Sessions/SessionPage.tsx
+│   ├── MovieDetails/MovieDetailsPage.tsx
+│   └── Profile/ProfilePage.tsx
+├── routes/
+│   ├── AppRoutes.tsx
+│   └── ProtectedRoute.tsx
+├── types/
+│   ├── models.d.ts
+│   └── api.d.ts
+└── utils/
+    ├── cn.ts
+    ├── errorHandling.ts
+    ├── formatters.ts
+    └── validation.ts
+
+
+ARCHITECTURAL APPROACH
+======================
+
+Текущая архитектура до аудита:
+Смешанная feature-based + layer-based структура (pages / features / app / api / components). Не FSD.
+
+Выбранная архитектура:
+Та же смешанная модель, с уточнённым размещением feature-hooks и удалением мёртвых файлов.
+
+Почему:
+Приложение среднего размера: 4 страницы, 5 доменов, Redux только для auth/booking, данные с API через React Query. Feature-модули уже совпадают с продуктовыми сценариями. Переход на FSD или дробление больших экранов не дал бы ясности и рискнул бы поведением.
+
+
+IMPORTANT
+=========
+
+Логика приложения не изменялась.
+Поведение приложения должно оставаться идентичным исходному состоянию.

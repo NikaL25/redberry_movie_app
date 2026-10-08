@@ -4,7 +4,7 @@ import { useDispatch } from 'react-redux'
 import { Check, ChevronDown, LogOut, Ticket, User } from 'lucide-react'
 
 import { SearchTypeahead } from '@/features/movies/SearchTypeahead'
-import { useAuth } from '@/hooks/useAuth'
+import { useAuth } from '@/features/auth/useAuth'
 import { openAuthModal, setReplay } from '@/features/auth/authSlice'
 
 /**

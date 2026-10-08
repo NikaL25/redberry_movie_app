@@ -2,7 +2,7 @@ import { useEffect, useId, useMemo, useState, type FormEvent, type InputHTMLAttr
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Calendar, ChevronDown } from 'lucide-react'
 import { queryKeys } from '@/app/queryClient'
-import { useAuth } from '@/hooks/useAuth'
+import { useAuth } from '@/features/auth/useAuth'
 import { useFilterOptions } from '@/features/sessions/sessionsQueries'
 import { updateProfile } from './profileApi'
 import { closeProfileModal, setReplay, setUser } from '@/features/auth/authSlice'

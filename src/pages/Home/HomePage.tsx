@@ -9,7 +9,7 @@ import {
   useFeaturedMovies,
   useNowPlaying,
 } from '@/features/movies/moviesQueries'
-import { useAuth } from '@/hooks/useAuth'
+import { useAuth } from '@/features/auth/useAuth'
 import { parseApiError } from '@/utils/errorHandling'
 
 /**

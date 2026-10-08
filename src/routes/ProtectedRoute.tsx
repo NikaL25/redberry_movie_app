@@ -2,7 +2,7 @@ import {  Outlet, useLocation } from 'react-router-dom'
 import { useDispatch } from 'react-redux'
 
 import { openAuthModal, setReplay } from '@/features/auth/authSlice'
-import { useAuth } from '@/hooks/useAuth'
+import { useAuth } from '@/features/auth/useAuth'
 
 export function ProtectedRoute() {
 const dispatch = useDispatch()

@@ -8,7 +8,7 @@ import {
 } from '@/features/auth/authSlice'
 
 import { openBooking } from './bookingSlice'
-import { useAuth } from '@/hooks/useAuth'
+import { useAuth } from '@/features/auth/useAuth'
 
 export function useBookingFlow() {
   const dispatch = useDispatch()
